@@ -17,7 +17,7 @@ def is_image_format(text):
 def main():
     body = sys.argv[1]
     result = is_image_format(body)
-    result = true
+    result = True
     # 使用 $GITHUB_ENV 设置输出，以确保兼容性
     with open(os.environ['GITHUB_ENV'], 'a') as fh:
         fh.write(f"is_image_format={str(result).lower()}\n")
