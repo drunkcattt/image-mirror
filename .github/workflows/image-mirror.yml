@@ -74,34 +74,29 @@ jobs:
           wget -q  https://github.com/AliyunContainerService/image-syncer/releases/download/v1.5.4/image-syncer-v1.5.4-linux-amd64.tar.gz
           tar zxf image-syncer-v1.5.4-linux-amd64.tar.gz 
           sudo  apt install dos2unix 
-       - name: start sync
+      - name: start sync
         if: steps.check_body.outputs.is_image_format == 'true'
         id: syncImage
         env:
           TARGET_REGISTRY_PASSWORD: ${{ secrets.TARGET_REGISTRY_PASSWORD }}
           TARGET_REGISTRY_USER: ${{ secrets.TARGET_REGISTRY_USER }}
+          # TARGET_REGISTRY: index.docker.io
+          # TARGET_REGISTRY: registry.cn-hangzhou.aliyuncs.com
           TARGET_NAMESPACE: ${{ secrets.TARGET_NAMESPACE }}
           TARGET_REGISTRY: ${{ secrets.TARGET_REGISTRY }}
+        #处理body中的空格和tab和换行，并在结尾添加: ， 写入images.yml 文件
         run: | 
           echo "${{ github.event.issue.body }}" > images-init.yml 
           dos2unix              images-init.yml
           sed -i 's/^[ \t]*//g' images-init.yml
           sed -i 's/[ \t]*$//g' images-init.yml
           sed -i '/^[  ]*$/d'   images-init.yml
-          
           img=$(cat images-init.yml)
           for i in ${img[@]}
           do
-            # 检查是否有自定义目标名称
-            if [[ $i == *" "* ]]; then
-              src_image=$(echo $i | awk '{print $1}')
-              tgt_image=$(echo $i | awk '{print $2}')
-            else
-              src_image=$i
-              tgt_image=$(echo $i | awk -F "/" '{print $NF}')
-            fi
-            echo $src_image: ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tgt_image} >> images.yml;
-            echo ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tgt_image} >> dockerhub-image.yml;
+            tagName=$(echo $i | awk -F "/" '{print $NF}');
+            echo $i: ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tagName} >> images.yml;
+            echo ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tagName} >> dockerhub-image.yml;
           done
           cat images.yml
           ./image-syncer  --auth=./auth.yml --images=./images.yml 
