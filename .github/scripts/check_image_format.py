@@ -2,8 +2,8 @@ import sys
 import re
 
 def is_image_format(text):
-    # Regular expression pattern to match the specified image formats
-    pattern = re.compile(r'^\s*([a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+:[a-zA-Z0-9\*._-]+|[a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+:[a-zA-Z0-9\*._-]+|[a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+:[a-zA-Z0-9\*._-]+|[a-zA-Z0-9\*._-]+:[a-zA-Z0-9\*._-]+)\s*$', re.MULTILINE)
+    # 正则表达式匹配镜像格式
+    pattern = re.compile(r'^\s*([a-zA-Z0-9\*._-]+/[a-zA-Z0-9\*._-]+:[a-zA-Z0-9\*._-]+(\s+[a-zA-Z0-9\*._-]+:[a-zA-Z0-9\*._-]+)?)\s*$', re.MULTILINE)
     lines = text.strip().split('\n')
     for line in lines:
         if not pattern.match(line):
