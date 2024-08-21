@@ -1,5 +1,7 @@
+# workflow 名称
 name: image-mirror
 
+# 当新建 issues 时，触发
 on:
   issues:
     types:
@@ -7,17 +9,25 @@ on:
       - reopened
       - edited
 
+
+# 需要执行的任务列表
 jobs:
+  # 镜像转换任务
   sync_to_target_registry:
+    # 运行环境
     runs-on: ubuntu-22.04
+    # 运行条件 => issues 的 label 包含 image-mirror
+    # if: contains(github.event.issue.labels.*.name, 'image-mirror')
     concurrency:
       group: ${{ github.workflow }}-${{ github.actor }}
       cancel-in-progress: true
-
+    # 镜像转换任务的步骤列表
     steps:
+
       - name: Check out code
         uses: actions/checkout@v2
-
+      # - uses: hmarr/debug-action@v2
+      #   name: debug
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -63,9 +73,8 @@ jobs:
         run: |
           wget -q  https://github.com/AliyunContainerService/image-syncer/releases/download/v1.5.4/image-syncer-v1.5.4-linux-amd64.tar.gz
           tar zxf image-syncer-v1.5.4-linux-amd64.tar.gz 
-          sudo apt install dos2unix 
-
-      - name: start sync
+          sudo  apt install dos2unix 
+       - name: start sync
         if: steps.check_body.outputs.is_image_format == 'true'
         id: syncImage
         env:
@@ -79,23 +88,23 @@ jobs:
           sed -i 's/^[ \t]*//g' images-init.yml
           sed -i 's/[ \t]*$//g' images-init.yml
           sed -i '/^[  ]*$/d'   images-init.yml
+          
           img=$(cat images-init.yml)
           for i in ${img[@]}
           do
-            original_name=$(echo $i | awk '{print $1}')
-            custom_name=$(echo $i | awk '{print $2}')
-            if [[ -z "$custom_name" ]]; then
-              tagName=$(echo $original_name | awk -F "/" '{print $NF}')
-              target_name=${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tagName}
+            # 检查是否有自定义目标名称
+            if [[ $i == *" "* ]]; then
+              src_image=$(echo $i | awk '{print $1}')
+              tgt_image=$(echo $i | awk '{print $2}')
             else
-              target_name=${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${custom_name}
+              src_image=$i
+              tgt_image=$(echo $i | awk -F "/" '{print $NF}')
             fi
-            echo $original_name: $target_name >> images.yml
-            echo $target_name >> dockerhub-image.yml
+            echo $src_image: ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tgt_image} >> images.yml;
+            echo ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tgt_image} >> dockerhub-image.yml;
           done
           cat images.yml
-          ./image-syncer --auth=./auth.yml --images=./images.yml 
-
+          ./image-syncer  --auth=./auth.yml --images=./images.yml 
       - name: Add Success Issues
         if: ${{ success() && steps.check_body.outputs.is_image_format == 'true' }} 
         uses: actions/github-script@v5
