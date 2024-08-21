@@ -1,13 +1,16 @@
 import sys
 import re
-import os  # 修复：导入 os 模块
+import os
 
 def is_image_format(text):
-    # 正则表达式匹配镜像格式，并允许可选的重命名
-    pattern = re.compile(r'^\s*([a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+)(\s+[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+)?\s*$', re.MULTILINE)
+    # 只检查空格前的镜像格式
+    pattern = re.compile(r'^\s*([a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+)\s*$', re.MULTILINE)
     lines = text.strip().split('\n')
     for line in lines:
-        if not pattern.match(line):
+        # 提取空格前面的部分
+        image_part = line.split()[0]
+        # 校验格式
+        if not pattern.match(image_part):
             return False
     return True
 
