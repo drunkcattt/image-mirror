@@ -87,10 +87,11 @@ jobs:
           dos2unix images-init.yml
           
           while IFS= read -r line; do
+            # Split the line into original and renamed parts
             if [[ "$line" =~ [[:space:]] ]]; then
-              # Split the line into original and renamed parts
-              originalImage=$(echo "$line" | awk '{print $1}')
-              renamedImage=$(echo "$line" | awk '{print $2}')
+              # If there's a space, split by it
+              originalImage=$(echo "$line" | awk -F " " '{print $1}')
+              renamedImage=$(echo "$line" | awk -F " " '{print $2}')
             else
               # Use the original image name and append the target registry and namespace
               originalImage="$line"
