@@ -1,5 +1,7 @@
+# workflow 名称
 name: image-mirror
 
+# 当新建 issues 时，触发
 on:
   issues:
     types:
@@ -7,16 +9,25 @@ on:
       - reopened
       - edited
 
+
+# 需要执行的任务列表
 jobs:
+  # 镜像转换任务
   sync_to_target_registry:
+    # 运行环境
     runs-on: ubuntu-22.04
+    # 运行条件 => issues 的 label 包含 image-mirror
+    # if: contains(github.event.issue.labels.*.name, 'image-mirror')
     concurrency:
       group: ${{ github.workflow }}-${{ github.actor }}
       cancel-in-progress: true
+    # 镜像转换任务的步骤列表
     steps:
+
       - name: Check out code
         uses: actions/checkout@v2
-
+      # - uses: hmarr/debug-action@v2
+      #   name: debug
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -28,7 +39,7 @@ jobs:
           python .github/scripts/check_image_format.py "${{ github.event.issue.body }}"
 
       - name: Add comment if body is not image format
-        if: env.is_image_format == 'false'
+        if: steps.check_body.outputs.is_image_format == 'false'
         uses: peter-evans/create-or-update-comment@v2
         with:
           issue-number: ${{ github.event.issue.number }}
@@ -41,55 +52,60 @@ jobs:
           edit-mode: replace
 
       - name: Add image-mirror label if body is image format
-        if: env.is_image_format == 'true'
+        if: steps.check_body.outputs.is_image_format == 'true'
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           labels: 'image-mirror'
 
       - name: Create comment
-        if: env.is_image_format == 'true'
+        if: ${{ steps.check_body.outputs.is_image_format == 'true' && steps.fc.outputs.comment-id == '' }}
         uses: peter-evans/create-or-update-comment@v2
         with:
           issue-number: ${{ github.event.issue.number }}
           body: |
             Syncing image to TargetRegistry, please wait a moment  
-            [Check the progress](https://github.com/${{ github.repository_owner }}/image-mirror/actions/runs/${{ github.run_id }})
+            [Check the progress](https://github.com/${{ github.repository_owner }}/image-mirror/actions/runs/${{ github.run_id }})    
           reactions: rocket
 
       - name: prepare
-        if: env.is_image_format == 'true'
+        if: steps.check_body.outputs.is_image_format == 'true'
         run: |
-          wget -q https://github.com/AliyunContainerService/image-syncer/releases/download/v1.5.4/image-syncer-v1.5.4-linux-amd64.tar.gz
+          wget -q  https://github.com/AliyunContainerService/image-syncer/releases/download/v1.5.4/image-syncer-v1.5.4-linux-amd64.tar.gz
           tar zxf image-syncer-v1.5.4-linux-amd64.tar.gz 
-          sudo apt install dos2unix 
-
+          sudo  apt install dos2unix 
       - name: start sync
-        if: env.is_image_format == 'true'
+        if: steps.check_body.outputs.is_image_format == 'true'
         id: syncImage
         env:
           TARGET_REGISTRY_PASSWORD: ${{ secrets.TARGET_REGISTRY_PASSWORD }}
-          TARGET_REGISTRY_USER: ${{ vars.TARGET_REGISTRY_USER }}
-          TARGET_NAMESPACE: ${{ vars.TARGET_NAMESPACE }}
-          TARGET_REGISTRY: ${{ vars.TARGET_REGISTRY }}
+          TARGET_REGISTRY_USER: ${{ secrets.TARGET_REGISTRY_USER }}
+          TARGET_NAMESPACE: ${{ secrets.TARGET_NAMESPACE }}
+          TARGET_REGISTRY: ${{ secrets.TARGET_REGISTRY }}
         run: |
           echo "${{ github.event.issue.body }}" > images-init.yml 
           dos2unix images-init.yml
           sed -i 's/^[ \t]*//g' images-init.yml
           sed -i 's/[ \t]*$//g' images-init.yml
           sed -i '/^[  ]*$/d' images-init.yml
+          
           img=$(cat images-init.yml)
           for i in ${img[@]}
           do
-            tagName=$(echo $i | awk -F "/" '{print $NF}');
-            echo $i: ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tagName} >> images.yml;
-            echo ${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tagName} >> dockerhub-image.yml;
+            originalImage=$(echo $i | awk '{print $1}')
+            if [[ $i == *" "* ]]; then
+              renamedImage=$(echo $i | awk '{print $2}')
+            else
+              tagName=$(echo $originalImage | awk -F "/" '{print $NF}')
+              renamedImage="${TARGET_REGISTRY}/${TARGET_NAMESPACE}/${tagName}"
+            fi
+            echo $originalImage: $renamedImage >> images.yml
+            echo $renamedImage >> dockerhub-image.yml
           done
           cat images.yml
           ./image-syncer --auth=./auth.yml --images=./images.yml
-
       - name: Add Success Issues
-        if: ${{ success() && env.is_image_format == 'true' }}
+        if: ${{ success() && steps.check_body.outputs.is_image_format == 'true' }}
         uses: actions/github-script@v5
         with:
           script: |
@@ -101,28 +117,28 @@ jobs:
             })
 
       - id: get-comment-body
-        if: env.is_image_format == 'true'
+        if: steps.check_body.outputs.is_image_format == 'true'
         run: |
           body="$(cat script.md)"
           body="${body//'%'/'%25'}"
           body="${body//$'\n'/'%0A'}"
           body="${body//$'\r'/'%0D'}" 
-          echo "body=$body" >> $GITHUB_ENV
+          echo "::set-output name=body::$body"
 
           dockerhubImage="$(cat dockerhub-image.yml)"
           dockerhubImage="${dockerhubImage//'%'/'%25'}"
           dockerhubImage="${dockerhubImage//$'\n'/'%0A'}"
           dockerhubImage="${dockerhubImage//$'\r'/'%0D'}" 
-          echo "dockerhubImage=$dockerhubImage" >> $GITHUB_ENV
+          echo "::set-output name=dockerhubImage::$dockerhubImage"
 
           sourceImage="$(cat images-init.yml)"
           sourceImage="${sourceImage//'%'/'%25'}"
           sourceImage="${sourceImage//$'\n'/'%0A'}"
           sourceImage="${sourceImage//$'\r'/'%0D'}" 
-          echo "sourceImage=$sourceImage" >> $GITHUB_ENV
+          echo "::set-output name=sourceImage::$sourceImage"
 
       - name: Find Comment
-        if: env.is_image_format == 'true'
+        if: steps.check_body.outputs.is_image_format == 'true'
         uses: peter-evans/find-comment@v2
         id: fc
         with:
@@ -131,7 +147,7 @@ jobs:
           body-includes: Syncing image to TargetRegistry
 
       - name: Add Tips
-        if: ${{ success() && env.is_image_format == 'true' }}
+        if: ${{ success() && steps.check_body.outputs.is_image_format == 'true'  }}
         uses: peter-evans/create-or-update-comment@v2
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
@@ -141,12 +157,12 @@ jobs:
             ## 镜像信息如下
             - dockerhub-image.yml  
             ```shell
-            ${{ env.dockerhubImage }}
+            ${{ steps.get-comment-body.outputs.dockerhubImage }}
             ```
             - images-init.yml
             ```shell
-            ${{ env.sourceImage }}
+            ${{ steps.get-comment-body.outputs.sourceImage }}
             ```            
-            ${{ env.body }}
+            ${{ steps.get-comment-body.outputs.body }}
           reactions: hooray
           edit-mode: replace
