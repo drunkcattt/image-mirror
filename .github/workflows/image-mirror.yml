@@ -85,8 +85,6 @@ jobs:
         run: |
           echo "${{ github.event.issue.body }}" > images-init.yml 
           dos2unix images-init.yml
-          sed -i 's/^[ \t]*//g' images-init.yml
-          sed -i 's/[ \t]*$//g' images-init.yml
           
           img=$(cat images-init.yml)
           for i in ${img[@]}
