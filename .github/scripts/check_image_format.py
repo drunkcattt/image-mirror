@@ -1,5 +1,6 @@
 import sys
 import re
+import os  # 修复：导入 os 模块
 
 def is_image_format(text):
     # 正则表达式匹配镜像格式，并允许可选的重命名
