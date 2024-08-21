@@ -87,7 +87,9 @@ jobs:
           dos2unix images-init.yml
           
           img=$(cat images-init.yml)
+          echo $img
           for i in ${img[@]}
+          echo $i
           do
             originalImage=$(echo $i | awk '{print $1}')
             if [[ $i == *" "* ]]; then
