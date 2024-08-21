@@ -7,7 +7,7 @@ def is_image_format(text):
     lines = text.strip().split('\n')
     for line in lines:
         origin_tag = line.split(' ')
-        if not pattern.match(line[0]):
+        if not pattern.match(origin_tag[0]):
             return False
     return True
 
