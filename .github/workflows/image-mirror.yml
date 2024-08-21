@@ -91,7 +91,7 @@ jobs:
             if [[ "$line" =~ [[:space:]] ]]; then
               # If there's a space, split by it
               originalImage=$(echo "$line" | awk -F " " '{print $1}')
-              renamedImage=$(echo "$line" | awk -F " " '{print $2}')
+              renamedImage=${TARGET_REGISTRY}/${TARGET_NAMESPACE}/$(echo "$line" | awk -F " " '{print $2}')
             else
               # Use the original image name and append the target registry and namespace
               originalImage="$line"
