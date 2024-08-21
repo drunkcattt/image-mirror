@@ -34,7 +34,6 @@ jobs:
           python-version: '3.x'
 
       - name: Add image-mirror label if body is image format
-        if: steps.check_body.outputs.is_image_format == 'true'
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
